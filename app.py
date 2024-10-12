@@ -3,6 +3,11 @@ import pandas as pd
 import numpy as np  # Import numpy for rounding up
 import os
 from veryfi import Client
+from utility import check_password
+
+# Check password and disclaimer
+if not check_password():
+    st.stop()
 
 # Load Veryfi API credentials from Streamlit secrets
 client_id = st.secrets['veryfi']['client_id']
