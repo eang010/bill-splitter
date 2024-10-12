@@ -32,9 +32,9 @@ with st.sidebar.form("add_name_form"):
         elif new_name in st.session_state.names:
             st.sidebar.warning(f'Name "{new_name}" already exists.')
 
-# Dropdown to delete names
+# Dropdown to delete names, show empty field unless a name is selected
 name_to_delete = st.sidebar.selectbox(
-    "Delete a name:", options=st.session_state.names)
+    "Delete a name:", options=[''] + st.session_state.names if st.session_state.names else [''])
 if st.sidebar.button("Delete Name"):
     if name_to_delete in st.session_state.names:
         st.session_state.names.remove(name_to_delete)
@@ -48,11 +48,27 @@ orders_df['Assigned Name'] = None
 
 st.title("Bill Splitter App")
 
-# Loop through each item and create a selectbox to assign names
-for i, row in orders_df.iterrows():
-    selected_name = st.selectbox(f"Assign a name to: {row['description']}", options=[
-                                 ''] + st.session_state.names, key=f'name_{i}')
-    orders_df.at[i, 'Assigned Name'] = selected_name
+# Add an expander for assigning names and editing amounts
+with st.expander("Assign Names and Edit Amounts"):
+    for i, row in orders_df.iterrows():
+        st.write(f"Item: {row['description']}")
+        cols = st.columns([3, 2])  # Adjust column widths
+
+        with cols[0]:  # First column for name assignment
+            selected_name = st.selectbox(f"Name:", options=[
+                                         ''] + st.session_state.names, key=f'name_{i}')
+            orders_df.at[i, 'Assigned Name'] = selected_name
+
+        with cols[1]:  # Second column for editable amount
+            item_amount = st.number_input(
+                f"Amount:",
+                value=row['total'],
+                min_value=0.0,
+                format="%.2f",
+                key=f'amount_{i}'
+            )
+            # Update the total amount in DataFrame
+            orders_df.at[i, 'total'] = item_amount
 
 # Input fields for service charge and GST rates
 st.sidebar.header("Rates")
