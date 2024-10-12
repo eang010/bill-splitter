@@ -1,2 +1,5 @@
 streamlit>=1.26.0
 python-dotenv==1.0.1
+veryfi
+pandas
+numpy
