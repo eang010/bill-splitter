@@ -2,16 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np  # Import numpy for rounding up
 import os
-from dotenv import load_dotenv
 from veryfi import Client
 
-load_dotenv()  # Load environment variables from .env file
-
-# Load Veryfi API credentials from environment variables
-client_id = os.getenv('VERYFI_CLIENT_ID')
-client_secret = os.getenv('VERYFI_CLIENT_SECRET')
-username = os.getenv('VERYFI_USERNAME')
-api_key = os.getenv('VERYFI_API_KEY')
+# Load Veryfi API credentials from Streamlit secrets
+client_id = st.secrets['veryfi']['client_id']
+client_secret = st.secrets['veryfi']['client_secret']
+username = st.secrets['veryfi']['username']
+api_key = st.secrets['veryfi']['api_key']
 
 # Initialize session state for names and processed data
 if 'names' not in st.session_state:
