@@ -21,7 +21,7 @@ if 'names' not in st.session_state:
                               'Kian Ping', 'Sean', 'Shawn', 'Stepfenny']
 if 'orders_df' not in st.session_state:
     st.session_state.orders_df = pd.DataFrame(
-        columns=['Order Description', 'Amount', 'Assigned Name'])
+        columns=['Order Description', 'Amount', 'Assigned Names'])
 
 # Sidebar for adding and deleting names
 st.sidebar.header("Manage Names")
@@ -68,11 +68,11 @@ if uploaded_file is not None and 'processed' not in st.session_state:
     orders = [(item.get('description', 'N/A'), item.get('total', 0))
               for item in line_items]
 
-    # Create a DataFrame to store the line items and initialize 'Assigned Name'
+    # Create a DataFrame to store the line items and initialize 'Assigned Names'
     st.session_state.orders_df = pd.DataFrame(
         orders, columns=['Order Description', 'Amount'])
-    # Initialize 'Assigned Name' column
-    st.session_state.orders_df['Assigned Name'] = ''
+    # Initialize 'Assigned Names' column
+    st.session_state.orders_df['Assigned Names'] = [[] for _ in range(len(orders))]
     st.session_state.processed = True  # Mark receipt as processed
 
 # Reference orders_df from the session state
@@ -86,11 +86,11 @@ with st.expander("Assign Names and Edit Amounts"):
         st.write(f"Item: {row['Order Description']}")
         cols = st.columns([3, 2])  # Adjust column widths
 
-        with cols[0]:  # First column for name assignment
-            selected_name = st.selectbox(f"Name:", options=[
-                                         ''] + st.session_state.names, key=f'name_{i}')
-            # Update 'Assigned Name'
-            orders_df.at[i, 'Assigned Name'] = selected_name
+        with cols[0]:  # First column for multiple name assignments
+            selected_names = st.multiselect(
+                f"Assign Names to Item:", options=st.session_state.names, key=f'names_{i}')
+            # Update 'Assigned Names'
+            orders_df.at[i, 'Assigned Names'] = selected_names
 
         with cols[1]:  # Second column for editable amount
             item_amount = st.number_input(
@@ -103,6 +103,26 @@ with st.expander("Assign Names and Edit Amounts"):
             # Update the total amount in DataFrame
             orders_df.at[i, 'Amount'] = item_amount
 
+# Split amounts based on the number of assigned names
+def split_amount(row):
+    num_names = len(row['Assigned Names'])
+    return row['Amount'] / num_names if num_names > 0 else row['Amount']
+
+# Calculate the split amount for each row
+orders_df['Split Amount'] = orders_df.apply(split_amount, axis=1)
+
+# Expand DataFrame to include each name with their corresponding split amount
+expanded_rows = []
+for _, row in orders_df.iterrows():
+    for name in row['Assigned Names']:
+        expanded_rows.append({
+            'Assigned Name': name,
+            'Order Description': row['Order Description'],
+            'Amount': row['Split Amount']
+        })
+
+expanded_df = pd.DataFrame(expanded_rows)
+
 # Input fields for service charge and GST rates
 st.sidebar.header("Rates")
 service_charge_enabled = st.sidebar.checkbox(
@@ -113,30 +133,23 @@ gst_enabled = st.sidebar.checkbox("Enable GST", value=True)
 gst_rate = st.sidebar.number_input(
     "GST Rate (%)", min_value=0.0, max_value=100.0, value=9.0 if gst_enabled else 0.0)
 
-# Create new columns for service charge and GST
-orders_df['Service Charge'] = orders_df['Amount'] * \
+# Create new columns for service charge and GST in expanded_df
+expanded_df['Service Charge'] = expanded_df['Amount'] * \
     (service_charge_rate / 100) if service_charge_enabled else 0.0
-orders_df['GST'] = (orders_df['Amount'] + orders_df['Service Charge']
-                    ) * (gst_rate / 100) if gst_enabled else 0.0
+expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
+                      ) * (gst_rate / 100) if gst_enabled else 0.0
 
 # Calculate final amount for each item (before rounding)
-orders_df['Final Amount (Unrounded)'] = orders_df['Amount'] + \
-    orders_df['Service Charge'] + orders_df['GST']
+expanded_df['Final Amount (Unrounded)'] = expanded_df['Amount'] + \
+    expanded_df['Service Charge'] + expanded_df['GST']
 
-# Ensure the 'Assigned Name' column exists before grouping
-if 'Assigned Name' in orders_df.columns:
-    # Group by 'Assigned Name' and sum the amounts
-    grouped_df = orders_df.groupby('Assigned Name').agg(
-        Total_Orders=('Amount', 'sum'),
-        Total_Service_Charge=('Service Charge', 'sum'),
-        Total_GST=('GST', 'sum'),
-        # Use unrounded for overall total
-        Final_Amount=('Final Amount (Unrounded)', 'sum')
-    ).reset_index()
-else:
-    st.warning("The 'Assigned Name' column is missing in the orders DataFrame.")
-    grouped_df = pd.DataFrame(columns=[
-                              'Assigned Name', 'Total_Orders', 'Total_Service_Charge', 'Total_GST', 'Final_Amount'])
+# Group by 'Assigned Name' and sum the amounts
+grouped_df = expanded_df.groupby('Assigned Name').agg(
+    Total_Orders=('Amount', 'sum'),
+    Total_Service_Charge=('Service Charge', 'sum'),
+    Total_GST=('GST', 'sum'),
+    Final_Amount=('Final Amount (Unrounded)', 'sum')
+).reset_index()
 
 # Calculate overall totals based on unrounded values
 overall_totals = pd.DataFrame({
@@ -144,7 +157,6 @@ overall_totals = pd.DataFrame({
     'Total_Orders': [grouped_df['Total_Orders'].sum()],
     'Total_Service_Charge': [grouped_df['Total_Service_Charge'].sum()],
     'Total_GST': [grouped_df['Total_GST'].sum()],
-    # Round up overall final amount
     'Final_Amount': [np.ceil(grouped_df['Final_Amount'].sum() * 100) / 100]
 })
 
@@ -162,7 +174,5 @@ st.dataframe(final_grouped_df)
 # Optional: Display individual item details
 if st.checkbox("Show Individual Item Details"):
     st.write("### Individual Order Details")
-    # Keep unrounded values for individual details
-    orders_df['Final Amount'] = orders_df['Final Amount (Unrounded)']
-    st.dataframe(orders_df[['Assigned Name', 'Order Description',
-                            'Amount', 'Service Charge', 'GST', 'Final Amount']])
+    st.dataframe(expanded_df[['Assigned Name', 'Order Description',
+                              'Amount', 'Service Charge', 'GST', 'Final Amount (Unrounded)']])
