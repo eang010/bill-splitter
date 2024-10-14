@@ -173,16 +173,17 @@ if not orders_df.empty:
         final_grouped_df['Final_Amount'] = np.ceil(
             final_grouped_df['Final_Amount'] * 100) / 100  # Round up for display
 
-        # Display the final grouped table
-        st.write("### Final Summary")
-        st.dataframe(final_grouped_df)
+        with st.expander("Final Summary Breakdown"):
+            # Display the final grouped table
+            st.write("### Final Summary")
+            st.dataframe(final_grouped_df)
 
-        # Optional: Display individual item details sorted by 'Assigned Name'
-        if st.checkbox("Show Individual Item Details"):
-            sorted_expanded_df = expanded_df.sort_values(by='Assigned Name')
-            st.write("### Individual Order Details")
-            st.dataframe(sorted_expanded_df[['Assigned Name', 'Order Description',
-                                             'Amount', 'Service Charge', 'GST', 'Final Amount (Unrounded)']])
+            # Optional: Display individual item details sorted by 'Assigned Name'
+            if st.checkbox("Show Individual Item Details"):
+                sorted_expanded_df = expanded_df.sort_values(by='Assigned Name')
+                st.write("### Individual Order Details")
+                st.dataframe(sorted_expanded_df[['Assigned Name', 'Order Description',
+                                                'Amount', 'Service Charge', 'GST', 'Final Amount (Unrounded)']])
 
         # Summarized table showing only the name and rounded final amount
         st.write("### Summary: Name and Final Amount")
