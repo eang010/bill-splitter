@@ -72,7 +72,8 @@ if uploaded_file is not None and 'processed' not in st.session_state:
     st.session_state.orders_df = pd.DataFrame(
         orders, columns=['Order Description', 'Amount'])
     # Initialize 'Assigned Names' column
-    st.session_state.orders_df['Assigned Names'] = [[] for _ in range(len(orders))]
+    st.session_state.orders_df['Assigned Names'] = [[]
+                                                    for _ in range(len(orders))]
     st.session_state.processed = True  # Mark receipt as processed
 
 # Reference orders_df from the session state
@@ -108,71 +109,94 @@ def split_amount(row):
     num_names = len(row['Assigned Names'])
     return row['Amount'] / num_names if num_names > 0 else row['Amount']
 
-# Calculate the split amount for each row
-orders_df['Split Amount'] = orders_df.apply(split_amount, axis=1)
+with st.expander("Debug"):
+    # Debug: Display the orders_df to ensure its structure is as expected
+    st.write("### Debug: orders_df before applying split_amount")
+    st.write(orders_df)
 
-# Expand DataFrame to include each name with their corresponding split amount
-expanded_rows = []
-for _, row in orders_df.iterrows():
-    for name in row['Assigned Names']:
-        expanded_rows.append({
-            'Assigned Name': name,
-            'Order Description': row['Order Description'],
-            'Amount': row['Split Amount']
-        })
+    # Calculate the split amount for each row
+    orders_df['Split Amount'] = orders_df.apply(split_amount, axis=1)
 
-expanded_df = pd.DataFrame(expanded_rows)
+with st.expander("Final Order Breakdown"):
+    # Expand DataFrame to include each name with their corresponding split amount
+    expanded_rows = []
+    for _, row in orders_df.iterrows():
+        for name in row['Assigned Names']:
+            expanded_rows.append({
+                'Assigned Name': name,
+                'Order Description': row['Order Description'],
+                'Amount': row['Split Amount']
+            })
 
-# Input fields for service charge and GST rates
-st.sidebar.header("Rates")
-service_charge_enabled = st.sidebar.checkbox(
-    "Enable Service Charge", value=True)
-service_charge_rate = st.sidebar.number_input(
-    "Service Charge Rate (%)", min_value=0.0, max_value=100.0, value=10.0 if service_charge_enabled else 0.0)
-gst_enabled = st.sidebar.checkbox("Enable GST", value=True)
-gst_rate = st.sidebar.number_input(
-    "GST Rate (%)", min_value=0.0, max_value=100.0, value=9.0 if gst_enabled else 0.0)
+    expanded_df = pd.DataFrame(expanded_rows)
 
-# Create new columns for service charge and GST in expanded_df
-expanded_df['Service Charge'] = expanded_df['Amount'] * \
-    (service_charge_rate / 100) if service_charge_enabled else 0.0
-expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
-                      ) * (gst_rate / 100) if gst_enabled else 0.0
+    # Input fields for service charge and GST rates
+    st.sidebar.header("Rates")
+    service_charge_enabled = st.sidebar.checkbox(
+        "Enable Service Charge", value=True)
+    service_charge_rate = st.sidebar.number_input(
+        "Service Charge Rate (%)", min_value=0.0, max_value=100.0, value=10.0 if service_charge_enabled else 0.0)
+    gst_enabled = st.sidebar.checkbox("Enable GST", value=True)
+    gst_rate = st.sidebar.number_input(
+        "GST Rate (%)", min_value=0.0, max_value=100.0, value=9.0 if gst_enabled else 0.0)
 
-# Calculate final amount for each item (before rounding)
-expanded_df['Final Amount (Unrounded)'] = expanded_df['Amount'] + \
-    expanded_df['Service Charge'] + expanded_df['GST']
+    # Create new columns for service charge and GST in expanded_df
+    expanded_df['Service Charge'] = expanded_df['Amount'] * \
+        (service_charge_rate / 100) if service_charge_enabled else 0.0
+    expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
+                        ) * (gst_rate / 100) if gst_enabled else 0.0
 
-# Group by 'Assigned Name' and sum the amounts
-grouped_df = expanded_df.groupby('Assigned Name').agg(
-    Total_Orders=('Amount', 'sum'),
-    Total_Service_Charge=('Service Charge', 'sum'),
-    Total_GST=('GST', 'sum'),
+    # Calculate final amount for each item (before rounding)
+    expanded_df['Final Amount (Unrounded)'] = expanded_df['Amount'] + \
+        expanded_df['Service Charge'] + expanded_df['GST']
+
+    # Group by 'Assigned Name' and sum the amounts
+    grouped_df = expanded_df.groupby('Assigned Name').agg(
+        Total_Orders=('Amount', 'sum'),
+        Total_Service_Charge=('Service Charge', 'sum'),
+        Total_GST=('GST', 'sum'),
+        Final_Amount=('Final Amount (Unrounded)', 'sum')
+    ).reset_index()
+
+    # Calculate overall totals based on unrounded values
+    overall_totals = pd.DataFrame({
+        'Assigned Name': ['Overall Total'],
+        'Total_Orders': [grouped_df['Total_Orders'].sum()],
+        'Total_Service_Charge': [grouped_df['Total_Service_Charge'].sum()],
+        'Total_GST': [grouped_df['Total_GST'].sum()],
+        'Final_Amount': [np.ceil(grouped_df['Final_Amount'].sum() * 100) / 100]
+    })
+
+    # Concatenate the overall totals with the grouped DataFrame
+    final_grouped_df = pd.concat([grouped_df, overall_totals], ignore_index=True)
+
+    # Round individual final amounts to 2 decimal places for display in summary table
+    final_grouped_df['Final_Amount'] = np.ceil(
+        final_grouped_df['Final_Amount'] * 100) / 100  # Round up for display
+
+    # Display the final grouped table
+    st.write("### Final Summary")
+    st.dataframe(final_grouped_df)
+
+    # Optional: Display individual item details
+    if st.checkbox("Show Individual Item Details"):
+        st.write("### Individual Order Details")
+        # Sort the expanded DataFrame by 'Assigned Name'
+        sorted_expanded_df = expanded_df.sort_values(by='Assigned Name')
+        st.dataframe(sorted_expanded_df[['Assigned Name', 'Order Description',
+                                        'Amount', 'Service Charge', 'GST', 'Final Amount (Unrounded)']])
+
+# Summarized table showing only the name and rounded final amount
+st.write("### Summary: Name and Final Amount")
+
+# Group by 'Assigned Name' and sum up the final amount
+summary_df = expanded_df.groupby('Assigned Name', as_index=False).agg(
     Final_Amount=('Final Amount (Unrounded)', 'sum')
-).reset_index()
+)
 
-# Calculate overall totals based on unrounded values
-overall_totals = pd.DataFrame({
-    'Assigned Name': ['Overall Total'],
-    'Total_Orders': [grouped_df['Total_Orders'].sum()],
-    'Total_Service_Charge': [grouped_df['Total_Service_Charge'].sum()],
-    'Total_GST': [grouped_df['Total_GST'].sum()],
-    'Final_Amount': [np.ceil(grouped_df['Final_Amount'].sum() * 100) / 100]
-})
+# Round the 'Final Amount' to 2 decimal places and format it as currency
+summary_df['Final_Amount'] = summary_df['Final_Amount'].apply(
+    lambda x: f"${np.ceil(x * 100) / 100:.2f}")
 
-# Concatenate the overall totals with the grouped DataFrame
-final_grouped_df = pd.concat([grouped_df, overall_totals], ignore_index=True)
-
-# Round individual final amounts to 2 decimal places for display in summary table
-final_grouped_df['Final_Amount'] = np.ceil(
-    final_grouped_df['Final_Amount'] * 100) / 100  # Round up for display
-
-# Display the final grouped table
-st.write("### Final Summary")
-st.dataframe(final_grouped_df)
-
-# Optional: Display individual item details
-if st.checkbox("Show Individual Item Details"):
-    st.write("### Individual Order Details")
-    st.dataframe(expanded_df[['Assigned Name', 'Order Description',
-                              'Amount', 'Service Charge', 'GST', 'Final Amount (Unrounded)']])
+# Display the summary table
+st.dataframe(summary_df)
