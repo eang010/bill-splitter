@@ -23,8 +23,12 @@ if 'orders_df' not in st.session_state:
     st.session_state.orders_df = pd.DataFrame(
         columns=['Order Description', 'Amount', 'Assigned Names'])
 
+st.sidebar.title("🤑 Bill Splitter App")
+
+st.sidebar.divider()
+
 # Sidebar for adding and deleting names
-st.sidebar.header("Manage Names")
+st.sidebar.header("👤 Manage Names")
 
 # Input form to add new names
 with st.sidebar.form("add_name_form"):
@@ -45,8 +49,10 @@ if st.sidebar.button("Delete Name"):
         st.session_state.names.remove(name_to_delete)
         st.sidebar.success(f'Deleted name: {name_to_delete}')
 
+st.sidebar.divider()
+
 # Sidebar for service charge and GST settings
-st.sidebar.header("Rates")
+st.sidebar.header("💱 Taxes")
 service_charge_enabled = st.sidebar.checkbox(
     "Enable Service Charge", value=True)
 service_charge_rate = st.sidebar.number_input(
@@ -55,8 +61,11 @@ gst_enabled = st.sidebar.checkbox("Enable GST", value=True)
 gst_rate = st.sidebar.number_input(
     "GST Rate (%)", min_value=0.0, max_value=100.0, value=9.0 if gst_enabled else 0.0)
 
+
+st.sidebar.divider()
+
 # Sidebar section to add the discount for the entire bill
-st.sidebar.header("Discount Settings")
+st.sidebar.header("💸 Discount")
 total_discount = st.sidebar.number_input(
     "Total Discount:",
     value=0.0,
@@ -70,8 +79,10 @@ discount_application = st.sidebar.radio(
     index=0  # Default selection to "Before GST and Service Charge"
 )
 
+st.sidebar.divider()
+
 # File uploader for receipt files
-st.sidebar.header("Upload Receipt")
+st.sidebar.header("🧾 Upload Receipt")
 uploaded_file = st.sidebar.file_uploader(
     "Choose a receipt file", type=["jpg", "jpeg", "png"])
 
@@ -196,3 +207,8 @@ if not orders_df.empty:
 
 else:
     st.info('Please upload a receipt to get started.', icon="💡")
+
+
+st.sidebar.divider()
+st.sidebar.code(
+    "Laziness 🔉 \n[ley-zee-nis] \n\nnoun \nThe secret ingredient\nof innovation! \n\nBy Emily ♥")
