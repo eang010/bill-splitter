@@ -195,4 +195,4 @@ if not orders_df.empty:
         st.dataframe(final_summary_table)
 
 else:
-    st.write("Please upload a receipt to get started.")
+    st.info('Please upload a receipt to get started.', icon="💡")
