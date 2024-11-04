@@ -123,7 +123,7 @@ if not orders_df.empty:
             with cols[1]:
                 item_amount = st.number_input(
                     f"Amount:", value=row['Amount'], min_value=0.0, format="%.2f", key=f'amount_{i}')
-                orders_df.at[i, 'Amount'] = item_amount
+       go         orders_df.at[i, 'Amount'] = item_amount
 
     orders_df['Split Amount'] = orders_df.apply(
         lambda row: row['Amount'] / len(row['Assigned Names']) if len(row['Assigned Names']) > 0 else 0, axis=1)
@@ -155,15 +155,23 @@ if not orders_df.empty:
             (total_discount if discount_application ==
              "After GST and Service Charge" else 0)
 
-        expanded_df['Proportionate Discount'] = (
-            expanded_df['Amount'] / overall_total) * total_discount if overall_total > 0 else 0
+        # Calculate the number of unique participants
+        num_participants = len(expanded_df['Assigned Name'].unique())
+
+        # Calculate the even discount per participant
+        even_discount_per_person = total_discount / num_participants if num_participants > 0 else 0
+
+        # Apply the even discount to each person's final amount
+        expanded_df['Proportionate Discount'] = even_discount_per_person
         expanded_df['Service Charge'] = expanded_df['Amount'] * \
             (service_charge_rate / 100) if service_charge_enabled else 0.0
-        expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
-                              ) * (gst_rate / 100) if gst_enabled else 0.0
-        expanded_df['Final Amount'] = expanded_df['Amount'] - \
-            expanded_df['Proportionate Discount'] + \
-            expanded_df['Service Charge'] + expanded_df['GST']
+            expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
+                                  ) * (gst_rate / 100) if gst_enabled else 0.0
+                                  expanded_df['Final Amount'] = expanded_df['Amount'] - \
+                                      expanded_df['Proportionate Discount'] + \
+                                          expanded_df['Service Charge'] + \
+                                              expanded_df['GST']
+                                              
 
         # Group the data by 'Assigned Name' and summarize the totals for each person
         summary_data = expanded_df.groupby('Assigned Name').agg(
