@@ -123,7 +123,7 @@ if not orders_df.empty:
             with cols[1]:
                 item_amount = st.number_input(
                     f"Amount:", value=row['Amount'], min_value=0.0, format="%.2f", key=f'amount_{i}')
-       go         orders_df.at[i, 'Amount'] = item_amount
+                orders_df.at[i, 'Amount'] = item_amount
 
     orders_df['Split Amount'] = orders_df.apply(
         lambda row: row['Amount'] / len(row['Assigned Names']) if len(row['Assigned Names']) > 0 else 0, axis=1)
@@ -165,12 +165,12 @@ if not orders_df.empty:
         expanded_df['Proportionate Discount'] = even_discount_per_person
         expanded_df['Service Charge'] = expanded_df['Amount'] * \
             (service_charge_rate / 100) if service_charge_enabled else 0.0
-            expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
-                                  ) * (gst_rate / 100) if gst_enabled else 0.0
-                                  expanded_df['Final Amount'] = expanded_df['Amount'] - \
-                                      expanded_df['Proportionate Discount'] + \
-                                          expanded_df['Service Charge'] + \
-                                              expanded_df['GST']
+        expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
+                              ) * (gst_rate / 100) if gst_enabled else 0.0
+        expanded_df['Final Amount'] = expanded_df['Amount'] - \
+            expanded_df['Proportionate Discount'] + \
+                expanded_df['Service Charge'] + \
+                    expanded_df['GST']
                                               
 
         # Group the data by 'Assigned Name' and summarize the totals for each person
