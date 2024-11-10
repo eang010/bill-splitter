@@ -24,13 +24,10 @@ if 'orders_df' not in st.session_state:
         columns=['Order Description', 'Amount', 'Assigned Names'])
 
 st.sidebar.title("🤑 Bill Splitter App")
-
 st.sidebar.divider()
 
 # Sidebar for adding and deleting names
 st.sidebar.header("👤 Manage Names")
-
-# Input form to add new names
 with st.sidebar.form("add_name_form"):
     new_name = st.text_input("Add a new name:")
     add_button = st.form_submit_button("Add Name")
@@ -41,7 +38,6 @@ with st.sidebar.form("add_name_form"):
         elif new_name in st.session_state.names:
             st.sidebar.warning(f'Name "{new_name}" already exists.')
 
-# Dropdown to delete names, show empty field unless a name is selected
 name_to_delete = st.sidebar.selectbox(
     "Delete a name:", options=[''] + st.session_state.names if st.session_state.names else [''])
 if st.sidebar.button("Delete Name"):
@@ -61,22 +57,16 @@ gst_enabled = st.sidebar.checkbox("Enable GST", value=True)
 gst_rate = st.sidebar.number_input(
     "GST Rate (%)", min_value=0.0, max_value=100.0, value=9.0 if gst_enabled else 0.0)
 
-
 st.sidebar.divider()
 
 # Sidebar section to add the discount for the entire bill
+st.sidebar.header("🚧🚧 In Maintenance 🚧🚧")
 st.sidebar.header("💸 Discount")
 total_discount = st.sidebar.number_input(
-    "Total Discount:",
-    value=0.0,
-    min_value=0.0,
-    format="%.2f"
-)
-
+    "Total Discount:", value=0.0, min_value=0.0, format="%.2f")
 discount_application = st.sidebar.radio(
-    "Apply Discount:",
-    options=["Before GST and Service Charge", "After GST and Service Charge"],
-    index=0  # Default selection to "Before GST and Service Charge"
+    "Apply Discount:", options=["Before GST and Service Charge", "After GST and Service Charge"],
+    index=0
 )
 
 st.sidebar.divider()
@@ -155,23 +145,26 @@ if not orders_df.empty:
             (total_discount if discount_application ==
              "After GST and Service Charge" else 0)
 
-        # Calculate the number of unique participants
-        num_participants = len(expanded_df['Assigned Name'].unique())
+        # Count the number of times each name is assigned across all orders
+        name_counts = expanded_df['Assigned Name'].value_counts()
 
-        # Calculate the even discount per participant
-        even_discount_per_person = total_discount / num_participants if num_participants > 0 else 0
+        # Calculate the even discount per eligible participant
+        eligible_names = [name for name,
+                          count in name_counts.items() if count == 1]
+        num_eligible_participants = len(eligible_names)
+        even_discount_per_person = total_discount / \
+            num_eligible_participants if num_eligible_participants > 0 else 0
 
-        # Apply the even discount to each person's final amount
-        expanded_df['Proportionate Discount'] = even_discount_per_person
+        # Apply the even discount only to eligible participants
+        expanded_df['Proportionate Discount'] = expanded_df['Assigned Name'].apply(
+            lambda name: even_discount_per_person if name in eligible_names else 0
+        )
         expanded_df['Service Charge'] = expanded_df['Amount'] * \
             (service_charge_rate / 100) if service_charge_enabled else 0.0
         expanded_df['GST'] = (expanded_df['Amount'] + expanded_df['Service Charge']
                               ) * (gst_rate / 100) if gst_enabled else 0.0
-        expanded_df['Final Amount'] = expanded_df['Amount'] - \
-            expanded_df['Proportionate Discount'] + \
-                expanded_df['Service Charge'] + \
-                    expanded_df['GST']
-                                              
+        expanded_df['Final Amount'] = expanded_df['Amount'] - expanded_df['Proportionate Discount'] \
+            + expanded_df['Service Charge'] + expanded_df['GST']
 
         # Group the data by 'Assigned Name' and summarize the totals for each person
         summary_data = expanded_df.groupby('Assigned Name').agg(
@@ -189,7 +182,7 @@ if not orders_df.empty:
             'Total_Discount': [total_discount],
             'Total_Service_Charge': [service_charge],
             'Total_GST': [gst],
-            'Final_Amount': [final_total_after_discount]  # No rounding
+            'Final_Amount': [final_total_after_discount]
         })
 
         summary_data = pd.concat(
@@ -207,7 +200,6 @@ if not orders_df.empty:
 
         # New table to show only Assigned Name and Final Amount
         final_summary_table = summary_data[['Assigned Name', 'Final_Amount']]
-        # Round the Final Amount for display in the summary table
         final_summary_table['Final_Amount'] = final_summary_table['Final_Amount'].round(
             2)
         st.write("### Summary of Final Amounts by Assigned Name")
@@ -215,7 +207,6 @@ if not orders_df.empty:
 
 else:
     st.info('Please upload a receipt to get started.', icon="💡")
-
 
 st.sidebar.divider()
 st.sidebar.code(
